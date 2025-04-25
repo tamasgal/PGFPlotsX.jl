@@ -33,7 +33,10 @@ end
 # Coordinate #
 ##############
 
-const CoordinateType = Union{Real, AbstractString}
+"""
+Types we accept as coordinates. Need to support [`print_tex`](@ref).
+"""
+const CoordinateType = Union{Real,AbstractString,Date}
 
 struct Coordinate{N}
     data::NTuple{N, CoordinateType}
@@ -132,7 +135,7 @@ struct Coordinates{N}
 end
 
 coordinate_or_nothing(data, args...) =
-    all(x -> x isa AbstractString || isfinite(x), data) ? Coordinate(data, args...) : nothing
+    all(x -> x isa AbstractString || isfinite(x)===true, data) ? Coordinate(data, args...) : nothing
 
 """
     $SIGNATURES
@@ -170,12 +173,12 @@ function Coordinates(itr)
     ensure_c(::Union{Nothing, Tuple{}}) = nothing
     ensure_c(c::Coordinate{N}) where N = (check_N(N); c)
     ensure_c(x) = throw(ArgumentError("Can't interpret $x as a coordinate."))
-    function ensure_c(data::NTuple{N, CoordinateType}) where N
+    function ensure_c(data::NTuple{N, Union{CoordinateType, Missing}}) where N
         check_N(N)
         coordinate_or_nothing(data)
     end
     data = [ensure_c(data) for data in itr]
-    @argcheck common_N ≠ 0 || "Could not determine dimension from coordinates"
+    @argcheck common_N ≠ 0 "Could not determine dimension from coordinates"
     Coordinates{common_N}(data)
 end
 
@@ -342,12 +345,6 @@ struct TableData
     end
 end
 
-function TableData(data::AbstractMatrix, colnames, scanlines, rowsep = ROWSEP)
-    TableData(data,
-              colnames ≡ nothing ? colnames : collect(string(c) for c in colnames),
-              expand_scanlines(scanlines, size(data, 1)), rowsep)
-end
-
 function print_tex(io::IO, tabledata::TableData)
     @unpack data, colnames, scanlines, rowsep = tabledata
     _colsep() = print(io, "  ")
@@ -371,6 +368,19 @@ function print_tex(io::IO, tabledata::TableData)
     end
 end
 
+
+"""
+    $SIGNATURES
+
+`data` provided directly as a matrix.
+"""
+function TableData(data::AbstractMatrix;
+                   colnames = nothing, scanlines = 0, rowsep = ROWSEP)
+    TableData(data,
+              colnames ≡ nothing ? colnames : collect(string(c) for c in colnames),
+              expand_scanlines(scanlines, size(data, 1)), rowsep)
+end
+
 """
     $SIGNATURES
 
@@ -381,19 +391,7 @@ arguments.
 """
 TableData(columns::Vector{<: AbstractVector}, colnames = nothing, scanlines = 0;
           rowsep::Bool = ROWSEP) =
-    TableData(hcat(columns...), nothing, 0, rowsep)
-
-TableData(itr; kwargs...) = TableData(collect(itr); kwargs...) # fallback
-
-"""
-    $SIGNATURES
-
-`data` provided directly as a matrix.
-"""
-function TableData(data::AbstractMatrix;
-                   colnames = nothing, scanlines = 0, rowsep = ROWSEP)
-    TableData(data, colnames, scanlines, rowsep)
-end
+    TableData(reduce(hcat, columns); colnames=nothing, scanlines=0, rowsep=rowsep)
 
 """
     $SIGNATURES
@@ -403,8 +401,8 @@ Symbols or strings are accepted as column names.
 """
 function TableData(name_column_pairs::Vector{<: Pair};
                    scanlines = 0, rowsep::Bool = ROWSEP)
-    TableData(hcat(last.(name_column_pairs)...), first.(name_column_pairs),
-              scanlines, rowsep)
+    TableData(reduce(hcat, last.(name_column_pairs)); colnames=first.(name_column_pairs),
+              scanlines=scanlines, rowsep=rowsep)
 end
 
 TableData(rest::AbstractVector...; kwargs...) = TableData(collect(rest); kwargs...)
@@ -412,30 +410,32 @@ TableData(rest::AbstractVector...; kwargs...) = TableData(collect(rest); kwargs.
 TableData(name_column_pairs::Pair...; kwargs...) =
     TableData(collect(name_column_pairs); kwargs...)
 
+function TableData(x::AbstractVector, y::AbstractVector, z::AbstractMatrix; kwargs...)
+    colnames = ["x", "y", "z"]
+    columns = reduce(hcat, matrix_xyz(x, y, z))
+    return TableData(columns; colnames=colnames, scanlines=length(x), kwargs...)
+end
+
+
 """
     $SIGNATURES
 
 Use the keyword arguments as columns.
 
-Note that this precludes the possibily of providing other keywords; see the
+Note that this precludes the possibility of providing other keywords; see the
 other constructors.
 """
-TableData(; named_columns...) = TableData(Pair(nc...) for nc in named_columns)
+TableData(; named_columns...) = TableData(collect(Pair(nc...) for nc in named_columns))
 
 TableData(::AbstractVector; kwargs...) =
     throw(ArgumentError("Could not determine whether columns are named from the element type."))
 
-function TableData(x::AbstractVector, y::AbstractVector, z::AbstractMatrix;
-                   meta::Union{Nothing, AbstractMatrix} = nothing,
-                   rowsep::Bool = ROWSEP)
-    colnames = ["x", "y", "z"]
-    columns = hcat(matrix_xyz(x, y, z)...)
-    if meta ≠ nothing
-        @argcheck size(z) == size(meta) "Incompatible sizes."
-        push!(colnames, "meta")
-        columns = hcat(columns, vec(meta))
+function TableData(table; kwargs...)
+    if !Tables.istable(table)
+        error("`$(typeof(table))` does not support the Table interface")
     end
-    TableData(columns, colnames, length(x), rowsep)
+    colnames = string.(Tables.columnnames(Tables.columns(table)))
+    TableData(Tables.matrix(table); colnames=colnames, kwargs...)
 end
 
 struct Table <: OptionType
@@ -464,7 +464,7 @@ Table([1:10, 11:20])                      # same contents, unnamed
 
 Table(Dict(:x => 1:10, :y = 11:20))       # a Dict with symbols
 
-@pgf Table({ "x index" = 2, "y index" = 1" }, randn(10, 3))
+@pgf Table({ "x index" = 2, "y index" = 1 }, randn(10, 3))
 
 let x = range(0; stop = 1, length = 10), y = range(-2; stop =  3, length = 15)
     Table(x, y, sin.(x + y'))             # edges & matrix
@@ -532,7 +532,7 @@ end
 ########
 
 "Types accepted by `Plot` for the field `data`."
-const PlotData = Union{Coordinates, Table, Expression, Graphics}
+const PlotData = Union{Coordinates, Table, Expression, Graphics, AbstractString}
 
 """
 $(TYPEDEF)
@@ -553,7 +553,8 @@ end
 Plot(is3d::Bool, incremental::Bool, options::Options, data::PlotData,
      trailing::Tuple) = Plot(is3d, incremental, options, data, collect(trailing))
 
-@forward Plot.trailing Base.push!, Base.append!
+Base.push!(p::Plot, args...; kwargs...) = (push!(p.trailing, args...; kwargs...); p)
+Base.append!(p::Plot, args...; kwargs...) = (append!(p.trailing, args...; kwargs...); p)
 
 """
     Plot([options::Options], data, trailing...)
@@ -664,7 +665,8 @@ end
 Corresponds to the `\\addlegendentry` and `\\addlegendentryexpanded` forms of
 PGFPlots.
 """
-LegendEntry(options::Options, name::AbstractString, isexpanded = false)
+LegendEntry(options::Options, name::AbstractString, isexpanded = false) =
+    LegendEntry(options, name, isexpanded)
 
 LegendEntry(name::AbstractString, isexpanded = false) =
     LegendEntry(Options(), name, isexpanded)
@@ -679,13 +681,31 @@ function print_tex(io::IO, legendentry::LegendEntry)
     println(io, "}")
 end
 
+###############
+# LegendImage #
+###############
+
+"""
+    LegendImage(options::Options)
+
+Corresponds to the `\\addlegendimage` form of pgfplots.
+"""
+struct LegendImage
+    options::Options
+end
+
+function print_tex(io::IO, legend_image::LegendImage)
+    print(io, "\\addlegendimage")
+    print_options(io, legend_image.options; newline = false, brackets = "{}")
+end
+
 ###################
 # VLine and HLine #
 ###################
 
 struct VLine
     options::Options
-    x::Real
+    x::CoordinateType
 end
 
 """
@@ -693,30 +713,74 @@ end
 
 A vertical line at `x`.
 """
-VLine(x::Real) = VLine(Options(), x)
+VLine(x::CoordinateType) = VLine(Options(), x)
 
 function print_tex(io::IO, vline::VLine)
-    @unpack options, x = vline
     print(io, "\\draw")
-    print_options(io, options; newline = false)
-    println(io, "($(x),\\pgfkeysvalueof{/pgfplots/ymin})--($(x),\\pgfkeysvalueof{/pgfplots/ymax});")
+    print_options(io, vline.options; newline = false)
+    x = print_tex(String, vline.x)
+    println(io, "({axis cs:$(x),0}|-{rel axis cs:0,1}) -- ({axis cs:$(x),0}|-{rel axis cs:0,0});")
 end
 
 struct HLine
     options::Options
-    y::Real
+    y::CoordinateType
 end
 
 """
     HLine([options], y)
 
-A horizontal vertical line at `y`.
+A horizontal line at `y`.
 """
-HLine(y::Real) = HLine(Options(), y)
+HLine(y::CoordinateType) = HLine(Options(), y)
 
 function print_tex(io::IO, hline::HLine)
-    @unpack options, y = hline
     print(io, "\\draw")
-    print_options(io, options; newline = false)
-    println(io, "(\\pgfkeysvalueof{/pgfplots/xmin},$(y))--(\\pgfkeysvalueof{/pgfplots/xmax},$(y));")
+    print_options(io, hline.options; newline = false)
+    y = print_tex(String, hline.y)
+    println(io, "({rel axis cs:1,0}|-{axis cs:0,$(y)}) -- ({rel axis cs:0,0}|-{axis cs:0,$(y)});")
+end
+
+###################
+# VBand and HBand #
+###################
+
+struct VBand
+    options::Options
+    xmin::CoordinateType
+    xmax::CoordinateType
+end
+
+"""
+    VBand([options], xmin, xmax)
+
+A vertical band from `xmin` to `xmax`.
+"""
+VBand(xmin::CoordinateType, xmax::CoordinateType) = VBand(Options(), xmin, xmax)
+
+function print_tex(io::IO, vband::VBand)
+    print(io, "\\draw")
+    print_options(io, vband.options; newline = false)
+    xmin, xmax = print_tex.(String, (vband.xmin, vband.xmax))
+    println(io, "({axis cs:$(xmin),0}|-{rel axis cs:0,1}) rectangle ({axis cs:$(xmax),0}|-{rel axis cs:0,0});")
+end
+
+struct HBand
+    options::Options
+    ymin::CoordinateType
+    ymax::CoordinateType
+end
+
+"""
+    HBand([options], ymin, ymax)
+
+A horizontal band from `ymin` to `ymax`.
+"""
+HBand(ymin::CoordinateType, ymax::CoordinateType) = HBand(Options(), ymin, ymax)
+
+function print_tex(io::IO, hband::HBand)
+    print(io, "\\draw")
+    print_options(io, hband.options; newline = false)
+    ymin, ymax = print_tex.(String, (hband.ymin, hband.ymax))
+    println(io, "({rel axis cs:1,0}|-{axis cs:0,$(ymin)}) rectangle ({rel axis cs:0,0}|-{axis cs:0,$(ymax)});")
 end

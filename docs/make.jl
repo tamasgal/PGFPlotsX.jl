@@ -1,15 +1,15 @@
 using Documenter, PGFPlotsX
-PGFPlotsX.latexengine!(PGFPlotsX.PDFLATEX)
-
-using Contour, Colors, DataFrames
+PGFPlotsX.latexengine!(PGFPlotsX.LUALATEX)
+DocMeta.setdocmeta!(PGFPlotsX, :DocTestSetup, :(using PGFPlotsX); recursive=true)
+using Contour, Colors, DataFrames, Distributions
 
 makedocs(
     modules = [PGFPlotsX],
+    format = Documenter.HTML(; assets = ["assets/custom.css"],
+                             prettyurls = get(ENV, "CI", nothing) == "true"),
     sitename = "PGFPlotsX.jl",
     doctest = true,
-    strict = true,
     checkdocs = :none,
-    assets = ["assets/custom.css"],
     pages = Any[
         "Home" => "index.md",
         "Manual" => [
@@ -38,4 +38,5 @@ makedocs(
 
 deploydocs(
     repo = "github.com/KristofferC/PGFPlotsX.jl.git",
+    push_preview=true,
 )

@@ -20,8 +20,17 @@ is_pdf_file(filename) = is_file_starting_with(filename, b"%PDF")
 is_tex_document(filename) =     # may have a \Require in the first line
     is_file_starting_with(filename, r"\\documentclass\[tikz\]{standalone}", 2)
 
-is_tikz_standalone(filename) =
-    is_file_starting_with(filename, r"\\begin{tikzpicture}")
+function is_tikz_standalone(filename)
+    if !isfile(filename)
+        return false
+    end
+    s = read(filename,String)
+    m = match(r"^([^%].*$)"m,s) # First non-commented non-empty line
+    if nothing ≡ m
+        return false
+    end
+    return occursin(r"\\begin{tikzpicture}",m.captures[1])
+end
 
 is_svg_file(filename) = is_file_starting_with(filename, r"<svg .*>", 2)
 
@@ -59,13 +68,13 @@ end
             pgfsave("$tmp.tex", a)
             @test is_tex_document("$tmp.tex")
             println(read("$tmp.tex", String))
-            if PGFPlotsX.HAVE_PDFTOPPM
+            if PGFPlotsX.png_engine() !== PGFPlotsX.NO_PNG_ENGINE
                 pgfsave("$tmp.png", a)
                 @test is_png_file("$tmp.png")
             else
                 @test_throws PGFPlotsX.MissingExternalProgramError pgfsave("$tmp.png", a)
             end
-            if PGFPlotsX.HAVE_PDFTOSVG
+            if PGFPlotsX.svg_engine() !== PGFPlotsX.NO_SVG_ENGINE
                 pgfsave("$tmp.svg", a)
                 @test is_svg_file("$tmp.svg")
             else
@@ -80,7 +89,6 @@ end
             @test is_pdf_file("$tmp-2.pdf")
 
             let tikz_lines = readlines("$tmp.tikz")
-                @test occursin(r"^\\begin{tikzpicture}.*", tikz_lines[1])
                 last_line = findlast(!isempty, tikz_lines)
                 @test strip(tikz_lines[last_line]) == "\\end{tikzpicture}"
             end
@@ -101,7 +109,7 @@ end
     end
     # svg
     let tmp = tmp * ".svg", mime = MIME"image/svg+xml"()
-        if PGFPlotsX.HAVE_PDFTOSVG
+        if PGFPlotsX.svg_engine() !== PGFPlotsX.NO_SVG_ENGINE
             show(io, mime, a)
             write(tmp, take!(io))
             @test is_svg_file(tmp)
@@ -112,7 +120,7 @@ end
     end
     # png
     let tmp = tmp * ".png", mime = MIME"image/png"()
-        if PGFPlotsX.HAVE_PDFTOPPM
+        if PGFPlotsX.png_engine() !== PGFPlotsX.NO_PNG_ENGINE
             show(io, mime, a)
             write(tmp, take!(io))
             @test is_png_file(tmp)

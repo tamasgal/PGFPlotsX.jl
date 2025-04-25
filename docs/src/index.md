@@ -2,7 +2,7 @@
 
 ## Introduction
 
-*PGFPlotsX* is a Julia package for creating publication quality figures using the LaTeX library [PGFPlots](http://pgfplots.sourceforge.net/) as the backend. PGFPlots has [extensive documentation (pdf)](http://pgfplots.sourceforge.net/pgfplots.pdf) and a rich database of answered questions on places like [stack overflow](https://stackoverflow.com/questions/tagged/pgf) and [tex.stackexchange](https://tex.stackexchange.com/questions/tagged/pgfplots). In order to take advantage of this, the syntax in PGFPlotsX is similar to the one written in `tex`. It is therefore, usually, easy to translate a PGFPlots example written in `tex` to PGFPlotsX Julia code. The advantage of using *PGFPlotsX.jl* over writing raw LaTeX code is that it is possible to use Julia objects directly in the figures. Furthermore, the figures can be previewed in notebooks and IDE's, like [julia-vscode](https://github.com/JuliaEditorSupport/julia-vscode) and [Atom-Juno](http://junolab.org/). It is, for example, possible to directly use a `DataFrame` from [DataFrames.jl](https://github.com/JuliaData/DataFrames.jl) as a PGFPlots `table`.
+*PGFPlotsX* is a Julia package for creating publication quality figures using the LaTeX library [PGFPlots](http://pgfplots.sourceforge.net/) as the backend. PGFPlots has [extensive documentation (pdf)](http://pgfplots.sourceforge.net/pgfplots.pdf) and a rich database of answered questions on places like [stack overflow](https://stackoverflow.com/questions/tagged/pgf) and [tex.stackexchange](https://tex.stackexchange.com/questions/tagged/pgfplots). In order to take advantage of this, the syntax in PGFPlotsX is similar to the one written in `tex`. It is therefore, usually, easy to translate a PGFPlots example written in `tex` to PGFPlotsX Julia code. The advantage of using *PGFPlotsX.jl* over writing raw LaTeX code is that it is possible to use Julia objects directly in the figures. Furthermore, the figures can be previewed in notebooks and IDE's, like [julia-vscode](https://github.com/JuliaEditorSupport/julia-vscode). It is, for example, possible to directly use a `DataFrame` from [DataFrames.jl](https://github.com/JuliaData/DataFrames.jl) as a PGFPlots `table`.
 
 !!! note
 
@@ -36,6 +36,6 @@ Studying this documentation, especially the [manual gallery](@ref manual_gallery
 
 Other useful sources of examples include:
 
-1. the [PGFplots examples gallery](http://www.pgfplots.net/tikz/examples/),
+1. the [PGFplots examples gallery](http://www.pgfplots.net/),
 
 2. the collection of [plots from the reference manuals](http://pgfplots.sourceforge.net/gallery.html).

@@ -46,7 +46,9 @@ table[row sep={\\}, x={Dof}, y={Err}]
 }
 ```
 
-If you load the DataFrames package, you can also create tables from data frames, see the examples in [Julia types](@ref).
+You can give a type that supports the [`Tables.jl`](https://juliadata.github.io/Tables.jl/stable/) as the second
+argument to `Table` and the data and column names will be inferred.
+For example, if you load the DataFrames package, you can create tables from data frames, see the examples in [Julia types](@ref).
 
 !!! note
 
@@ -159,3 +161,7 @@ Example:
 julia> print_tex(Graphics("img.png"))
 graphics {img.png}
 ```
+
+## Strings in `Plot`
+
+Strings (technically, all subtypes of `AbstractString`) are also accepted by plots, and will be emitted into LaTeX *as is*. This is mostly useful for using constructs from TikZ that do not have a native representation in this package directly as LaTeX code. See [this example](@ref latex-plot-elements).

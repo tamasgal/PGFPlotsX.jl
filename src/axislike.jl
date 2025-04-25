@@ -23,7 +23,8 @@ Return the corresponding LaTeX environment name.
 """
 function axislike_environment end
 
-@forward AxisLike.contents Base.push!, Base.append!
+Base.push!(a::AxisLike, args...; kwargs...) = (push!(a.contents, args...; kwargs...); a)
+Base.append!(a::AxisLike, args...; kwargs...) = (append!(a.contents, args...; kwargs...); a)
 
 (T::Type{<:AxisLike})(contents...) = T(Options(), contents...)
 
@@ -100,6 +101,13 @@ Polar axes, corresponds to `polaraxis` in PGFPlots.
 Smith Chart axes, corresponds to `smithchart` in PGFPlots.
 """
 @define_axislike SmithChart "smithchart"
+
+"""
+    TernaryAxis([options], elements...)
+
+Ternary axes, corresponds to `ternaryaxis` in PGFPlots.
+"""
+@define_axislike TernaryAxis "ternaryaxis"
 
 """
     GroupPlot([options], contents...)

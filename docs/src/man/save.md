@@ -1,8 +1,8 @@
 #  Showing / Exporting figures
 
-## Jupyter, Juno
+## Jupyter
 
-Figures are shown in `svg` format when evaluated in Jupyter or Juno. For this you need the `pdf2svg` software installed. If you want to show figures in `png` format (because perhaps the svg format is too large), you can use `display("image/png", p)` where `p` is the figure to show. In Juno, if you are on macOS and there are problems finding the latex executable, see [this issue](https://github.com/atom/atom/issues/6956). Starting Atom from the terminal seems to work around it.
+Figures are shown in `svg` format when evaluated in Jupyter. For this you need the `pdf2svg` software installed. If you want to show figures in `png` format (because perhaps the svg format is too large), you can use `display("image/png", p)` where `p` is the figure to show.
 
 ## REPL
 
@@ -57,8 +57,25 @@ PGFPlotsX.CLASS_OPTIONS
 
 ## Choosing the LaTeX engine used
 
-Thee are two different choices for latex engines, `PDFLATEX`, `LUALATEX`.
-By default, `LUALATEX` is used if it was available during `Pkg.build()`. The active engine can be retrieved with the `latexengine()` function and be set with `latexengine!(engine)` where `engine` is one of the two previously mentioned engines (e.g. `PGFPlotsX.PDFLATEX`).
+Thee are three different choices for latex engines, `PDFLATEX`, `LUALATEX` and `XELATEX`.
+By default, `LUALATEX` is used if it was available during `Pkg.build()`. The active engine can be retrieved with the `latexengine()` function and be set with `latexengine!(engine)` where `engine` is one of the three previously mentioned engines (i.e. `PGFPlotsX.PDFLATEX` or `PGFPlotsX.XELATEX`).
+
+## File conversions
+
+When saving a file in PNG or SVG formats, it is first saved as a PDF and then converted using external programs. When the user needs more than one version, this can be done more efficiently by converting the PDF manually, as in
+```julia
+pdf_path = "/tmp/filename.pdf"
+pgfsave(pdf_path, my_figure)
+PGFPlotsX.convert_pdf_to_png(pdf_path) # /tmp/filename.png
+PGFPlotsX.convert_pdf_to_svg(pdf_path) # /tmp/filename.svg
+```
+
+The following are utility functions available for this purpose, but not exported.
+
+```@docs
+PGFPlotsX.convert_pdf_to_png
+PGFPlotsX.convert_pdf_to_svg
+```
 
 ## Custom flags
 

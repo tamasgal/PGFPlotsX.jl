@@ -3,9 +3,9 @@ const TikzElementOrStr = Union{TikzElement, String}
 """
     TikzPicture([options], contents...)
 
-Corredponds to a `tikzpicture` block in PGFPlots.
+Corresponds to a `tikzpicture` block in PGFPlots.
 
-Elements can also be added with `push!` after contruction.
+Elements can also be added with `push!` after construction.
 """
 struct TikzPicture <: OptionType
     options::Options
@@ -17,7 +17,8 @@ end
 
 TikzPicture(elements::TikzElementOrStr...) = TikzPicture(Options(), elements...)
 
-@forward TikzPicture.elements Base.push!, Base.append!
+Base.push!(t::TikzPicture, args...; kwargs...) = (push!(t.elements, args...; kwargs...); t)
+Base.append!(t::TikzPicture, args...; kwargs...) = (append!(t.elements, args...; kwargs...); t)
 
 function print_tex(io::IO, tp::TikzPicture)
     @unpack options, elements = tp

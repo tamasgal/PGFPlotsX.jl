@@ -69,6 +69,10 @@ end
             Coordinates([1.0, 2.0], [3.0, 4.0], yerror = [0.3, 0.4]).data
     end
 
+    # missing values
+    @test Coordinates([1,2], [3,missing]).data == Coordinates([(1,3), nothing]).data
+    @test Coordinates([(1,3), (2,missing)]).data == Coordinates([(1,3), nothing]).data
+
     # meta printing
     @test squashed_repr_tex(Coordinates([1], [1]; meta = [RGB(0.1, 0.2, 0.3)])) ==
         "coordinates {\n(1,1) [rgb=0.1,0.2,0.3]\n}"
@@ -76,10 +80,10 @@ end
 
 @testset "tables" begin
     # compare results to these using ≅, defined above
-    table_named_noopt = Table(hcat(1:10, 11:20), ["a", "b"], Int[])
-    table_unnamed_noopt = Table(hcat(1:10, 11:20), nothing, Int[])
+    table_named_noopt = Table(hcat(1:10, 11:20); colnames=["a", "b"], scanlines=Int[])
+    table_unnamed_noopt = Table(hcat(1:10, 11:20); colnames=nothing, scanlines=Int[])
     opt = @pgf { meaningless = "option" }
-    table_named_opt = Table(opt, hcat(1:10, 11:20), ["a", "b"], Int[])
+    table_named_opt = Table(opt, hcat(1:10, 11:20); colnames=["a", "b"], scanlines=Int[])
 
     # named columns, without options
     @test Table(:a => 1:10, :b => 11:20) ≅ table_named_noopt
@@ -100,13 +104,13 @@ end
     # matrix and edges
     let x = randn(10), y = randn(5), z = cos.(x .+ y')
         @test Table(x, y, z) ≅ Table(PGFPlotsX.Options(),
-                                             hcat(PGFPlotsX.matrix_xyz(x, y, z)...),
-                                             ["x", "y", "z"], 10)
+                                             hcat(PGFPlotsX.matrix_xyz(x, y, z)...);
+                                             colnames=["x", "y", "z"], scanlines=10)
     end
 
     # dataframe
     @test Table(DataFrame(a = 1:5, b = 6:10)) ≅
-        Table(PGFPlotsX.Options(), hcat(1:5, 6:10), ["a", "b"], 0)
+        Table(PGFPlotsX.Options(), hcat(1:5, 6:10), colnames=["a", "b"], scanlines=0)
 
     # can't determine if it is named or unnamed
     @test_throws ArgumentError Table([1:10, :a => 11:20])
@@ -170,6 +174,8 @@ end
         "        1  3  \\\\\n        2  4  \\\\\n    }\n    trailing\n    ;\n"
     # legend
     @test repr_tex(Legend(["a", "b", "c"])) == "\\legend{{a},{b},{c}}\n"
+    @test repr_tex(@pgf LegendEntry({red}, "a")) == "\\addlegendentry[red] {a}\n"
+    @test repr_tex(@pgf LegendEntry({red}, "a", true)) == "\\addlegendentryexpanded[red] {a}\n"
     l = LegendEntry("a")
     @test repr_tex(l) == "\\addlegendentry {a}\n"
     # axis
@@ -186,28 +192,35 @@ end
 
 @testset "push! and append!" begin
     plot = Plot(Expression("x"))
-    push!(plot, "a")
-    append!(plot, ["b", "c"])
+    push!(plot, "a")::Plot
+    append!(plot, ["b", "c"])::Plot
     @test plot.trailing == ["a", "b", "c"]
     axis = Axis()
-    push!(axis, plot)
-    append!(axis, ["non", "sense"])
+    push!(axis, plot)::Axis
+    append!(axis, ["non", "sense"])::Axis
     @test axis.contents == [plot, "non", "sense"]
     picture = TikzPicture()
-    push!(picture, axis)
-    append!(picture, ["some", "thing"])
+    push!(picture, axis)::TikzPicture
+    append!(picture, ["some", "thing"])::TikzPicture
     @test picture.elements == [axis, "some", "thing"]
     document = TikzDocument()
-    push!(document, picture)
-    append!(document, ["stuff"])
+    push!(document, picture)::TikzDocument
+    append!(document, ["stuff"])::TikzDocument
     @test document.elements == [picture, "stuff"]
 end
 
 @testset "vertical and horizontal lines" begin
     @test repr_tex((@pgf VLine({blue}, 9))) ==
-        "\\draw[blue] (9,\\pgfkeysvalueof{/pgfplots/ymin})--(9,\\pgfkeysvalueof{/pgfplots/ymax});\n"
+        "\\draw[blue] ({axis cs:9,0}|-{rel axis cs:0,1}) -- ({axis cs:9,0}|-{rel axis cs:0,0});\n"
     @test repr_tex((@pgf HLine({dashed}, 4.0))) ==
-        "\\draw[dashed] (\\pgfkeysvalueof{/pgfplots/xmin},4.0)--(\\pgfkeysvalueof{/pgfplots/xmax},4.0);\n"
+        "\\draw[dashed] ({rel axis cs:1,0}|-{axis cs:0,4.0}) -- ({rel axis cs:0,0}|-{axis cs:0,4.0});\n"
+end
+
+@testset "vertical and horizontal bands" begin
+    @test repr_tex((@pgf VBand({blue}, 8, 9))) ==
+        "\\draw[blue] ({axis cs:8,0}|-{rel axis cs:0,1}) rectangle ({axis cs:9,0}|-{rel axis cs:0,0});\n"
+    @test repr_tex((@pgf HBand({dashed}, 4.0, 6.5))) ==
+        "\\draw[dashed] ({rel axis cs:1,0}|-{axis cs:0,4.0}) rectangle ({rel axis cs:0,0}|-{axis cs:0,6.5});\n"
 end
 
 @testset "colors" begin

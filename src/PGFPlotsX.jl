@@ -1,24 +1,23 @@
 module PGFPlotsX
 
-import MacroTools: prewalk, @capture, @forward
+if isdefined(Base, :Experimental) && isdefined(Base.Experimental, Symbol("@optlevel"))
+    @eval Base.Experimental.@optlevel 1
+end
 
 using ArgCheck: @argcheck
-using DataStructures: OrderedDict
 using Dates
-import DefaultApplication
+using OrderedCollections: OrderedDict
+using DefaultApplication: DefaultApplication
 using DocStringExtensions: SIGNATURES, TYPEDEF
+using MacroTools: prewalk, @capture
 using Parameters: @unpack
-using StatsBase: midpoints
-using Requires: @require
-using Unicode: lowercase
+using Tables: Tables
 
 export TikzDocument, TikzPicture
-export Axis, SemiLogXAxis, SemiLogYAxis, LogLogAxis, PolarAxis, SmithChart, GroupPlot
+export Axis, SemiLogXAxis, SemiLogYAxis, LogLogAxis, PolarAxis, SmithChart, GroupPlot, TernaryAxis
 export Plot, PlotInc, Plot3, Plot3Inc, Expression, Coordinate, Coordinates,
-    TableData, Table, Graphics, Legend, LegendEntry, VLine, HLine
+    TableData, Table, Graphics, Legend, LegendEntry, LegendImage, VLine, HLine, VBand, HBand
 export @pgf, pgfsave, print_tex, latexengine, latexengine!, push_preamble!
-
-const DEBUG = haskey(ENV, "PGFPLOTSX_DEBUG")
 
 struct PGFPlotsXDisplay <: AbstractDisplay end
 
@@ -27,12 +26,6 @@ A file which is spliced directly to the preamble. Customize the file at this
 path for site-specific setting that apply for every plot.
 """
 const CUSTOM_PREAMBLE_PATH = joinpath(@__DIR__, "..", "deps", "custom_preamble.tex")
-const AbstractDict = Union{Dict, OrderedDict}
-
-if !isfile(joinpath(@__DIR__, "..", "deps", "deps.jl"))
-    error("""please run Pkg.build("PGFPlotsX") before loading the package""")
-end
-include("../deps/deps.jl")
 
 """
     print_tex(io, elt, [container])
@@ -124,11 +117,32 @@ abstract type TikzElement <: OptionType end
 include("axislike.jl")
 include("tikzpicture.jl")
 include("tikzdocument.jl")
-include("requires.jl")
 include("build.jl")
+include("precompile_PGFPlotsX.jl")
+_precompile_()
 
-if DEFAULT_ENGINE == "PDFLATEX"
-    latexengine!(PDFLATEX)
+# TODO: Replace with proper version
+const EXTENSIONS_SUPPORTED = isdefined(Base, :get_extension)
+
+if !EXTENSIONS_SUPPORTED
+    using Requires: @require
+end
+
+function __init__()
+    pushdisplay(PGFPlotsXDisplay())
+    atreplinit(i -> begin
+        if PlotDisplay() in Base.Multimedia.displays
+            popdisplay(PGFPlotsXDisplay())
+        end
+        pushdisplay(PGFPlotsXDisplay())
+    end)
+
+    @static if !EXTENSIONS_SUPPORTED
+        @require Colors="5ae59095-9a9b-59fe-a467-6f913c188581" include("../ext/ColorsExt.jl")
+        @require Contour="d38c429a-6771-53c6-b99e-75d170b6e991" include("../ext/ContourExt.jl")
+        @require StatsBase="2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91" include("../ext/StatsBaseExt.jl")
+        @require Measurements="eff96d63-e80a-5855-80a2-b1b0885c5ab7" include("../ext/MeasurementsExt.jl")
+    end
 end
 
 end # module
